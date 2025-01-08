@@ -71,50 +71,50 @@ pub async fn run(mut virtual_dom: VirtualDom, web_config: Config) -> ! {
     #[cfg(all(feature = "devtools", debug_assertions))]
     let mut hotreload_rx = devtools::init(runtime.clone());
 
-    let should_hydrate = web_config.hydrate;
+    let should_hydrate = false; //web_config.hydrate;
 
     let mut websys_dom = WebsysDom::new(web_config, runtime);
 
     let mut hydration_receiver: Option<futures_channel::mpsc::UnboundedReceiver<SuspenseMessage>> =
         None;
+    tracing::info!("in brian custom run");
+    if should_hydrate {
+        #[cfg(feature = "hydrate")]
+        {
+            websys_dom.skip_mutations = true;
+            // Get the initial hydration data from the client
+            #[wasm_bindgen::prelude::wasm_bindgen(inline_js = r#"
+                export function get_initial_hydration_data() {
+                    const decoded = atob(window.initial_dioxus_hydration_data);
+                    return Uint8Array.from(decoded, (c) => c.charCodeAt(0))
+                }
+            "#)]
+            extern "C" {
+                fn get_initial_hydration_data() -> js_sys::Uint8Array;
+            }
+            let hydration_data = get_initial_hydration_data().to_vec();
+            let server_data = HTMLDataCursor::from_serialized(&hydration_data);
+            // If the server serialized an error into the root suspense boundary, throw it into the root scope
+            if let Some(error) = server_data.error() {
+                virtual_dom.in_runtime(|| dioxus_core::ScopeId::APP.throw_error(error));
+            }
+            with_server_data(server_data, || {
+                virtual_dom.rebuild(&mut websys_dom);
+            });
+            websys_dom.skip_mutations = false;
 
-    // if 0 {
-    //     #[cfg(feature = "hydrate")]
-    //     {
-    //         websys_dom.skip_mutations = true;
-    //         // Get the initial hydration data from the client
-    //         #[wasm_bindgen::prelude::wasm_bindgen(inline_js = r#"
-    //             export function get_initial_hydration_data() {
-    //                 const decoded = atob(window.initial_dioxus_hydration_data);
-    //                 return Uint8Array.from(decoded, (c) => c.charCodeAt(0))
-    //             }
-    //         "#)]
-    //         extern "C" {
-    //             fn get_initial_hydration_data() -> js_sys::Uint8Array;
-    //         }
-    //         let hydration_data = get_initial_hydration_data().to_vec();
-    //         let server_data = HTMLDataCursor::from_serialized(&hydration_data);
-    //         // If the server serialized an error into the root suspense boundary, throw it into the root scope
-    //         if let Some(error) = server_data.error() {
-    //             virtual_dom.in_runtime(|| dioxus_core::ScopeId::APP.throw_error(error));
-    //         }
-    //         with_server_data(server_data, || {
-    //             virtual_dom.rebuild(&mut websys_dom);
-    //         });
-    //         websys_dom.skip_mutations = false;
+            let rx = websys_dom.rehydrate(&virtual_dom).unwrap();
+            hydration_receiver = Some(rx);
+        }
+        #[cfg(not(feature = "hydrate"))]
+        {
+            panic!("Hydration is not enabled. Please enable the `hydrate` feature.");
+        }
+    } else {
+        virtual_dom.rebuild(&mut websys_dom);
 
-    //         let rx = websys_dom.rehydrate(&virtual_dom).unwrap();
-    //         hydration_receiver = Some(rx);
-    //     }
-    //     #[cfg(not(feature = "hydrate"))]
-    //     {
-    //         panic!("Hydration is not enabled. Please enable the `hydrate` feature.");
-    //     }
-    // } else {
-    virtual_dom.rebuild(&mut websys_dom);
-
-    websys_dom.flush_edits();
-    // }
+        websys_dom.flush_edits();
+    }
 
     loop {
         // if virtual dom has nothing, wait for it to have something before requesting idle time
