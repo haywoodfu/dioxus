@@ -707,7 +707,7 @@ impl AppBundle {
         .spawn()?;
 
         // Wait a second for the server to start
-        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        tokio::time::sleep(std::time::Duration::from_secs(5)).await;
 
         // Get the routes from the `/static_routes` endpoint
         let mut routes = reqwest::Client::builder()

@@ -71,7 +71,7 @@ pub async fn run(mut virtual_dom: VirtualDom, web_config: Config) -> ! {
     #[cfg(all(feature = "devtools", debug_assertions))]
     let mut hotreload_rx = devtools::init(runtime.clone());
 
-    let should_hydrate = false; //web_config.hydrate;
+    let should_hydrate = web_config.hydrate;
 
     let mut websys_dom = WebsysDom::new(web_config, runtime);
 
