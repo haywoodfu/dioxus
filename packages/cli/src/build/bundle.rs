@@ -743,7 +743,7 @@ impl AppBundle {
         // Wait a second for the cache to be written by the server
         tracing::info!("Waiting a moment for isrg to propagate...");
 
-        tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+        tokio::time::sleep(std::time::Duration::from_secs(30)).await;
 
         tracing::info!("SSG complete");
 
