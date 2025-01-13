@@ -95,6 +95,14 @@ impl IncrementalRendererConfig {
             invalidate_after: self.invalidate_after,
         };
 
+        tracing::debug!(
+            "static_dir {}",
+            self.static_dir
+                .clone()
+                .into_os_string()
+                .into_string()
+                .unwrap()
+        );
         if self.clear_cache {
             renderer.invalidate_all();
         }
